@@ -1180,19 +1180,17 @@ where
 
     fn check_buffer_out(&mut self, frame: &Frame) -> Result<()> {
         if self.out_buffer.get_ref().capacity() <= self.out_buffer.get_ref().len() + frame.len() {
-            // extend
-            let mut new = Vec::with_capacity(self.out_buffer.get_ref().capacity());
-            new.extend(&self.out_buffer.get_ref()[self.out_buffer.position() as usize..]);
-            if new.len() == new.capacity() {
-                if self.settings.out_buffer_grow {
-                    new.reserve(self.settings.out_buffer_capacity)
-                } else {
-                    return Err(Error::new(
-                        Kind::Capacity,
-                        "Maxed out output buffer for connection.",
-                    ));
-                }
+            let new_size = self.out_buffer.get_ref().len() -
+                           (self.out_buffer.position() as usize) + frame.len();
+            if new_size > self.settings.out_buffer_capacity && !self.settings.out_buffer_grow {
+                return Err(Error::new(
+                    Kind::Capacity,
+                    "Maxed out output buffer for connection.",
+                ));
             }
+            // extend
+            let mut new = Vec::with_capacity(new_size);
+            new.extend(&self.out_buffer.get_ref()[self.out_buffer.position() as usize..]);
             self.out_buffer = Cursor::new(new);
         }
         Ok(())
